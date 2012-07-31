@@ -1,3 +1,5 @@
+#include <v8.h>
+using namespace v8;
 
 #ifndef WIN32
 #include "serialport.h"
@@ -100,7 +102,7 @@ void EIO_Open(uv_work_t* req) {
     return;
   }
 
-  int flags = (O_RDWR | O_NOCTTY);
+  int flags = (O_RDWR | O_NOCTTY );
   int fd = open(data->path, flags);
 
   if (fd == -1) {
@@ -208,20 +210,39 @@ void EIO_Write(uv_work_t* req) {
   int bytesWritten=0;
   int length = data->bufferLength;
 
+
   do
   {
     int chunk_size = 63;
     if(length < chunk_size)
       chunk_size = length;
 
-    tcdrain(data->fd);
+    int drainok = tcdrain(data->fd);
+    if(drainok == -1)
+    {
+      printf("error %s\n",strerror( errno ));
+      sprintf(data->errorString, "drain error");
+      return;
+    }
+
+
     int written = write(data->fd, (data->bufferData)+bytesWritten, chunk_size);
+
+    if(written == -1)
+    {
+      printf("error %s\n",strerror( errno ));
+      sprintf(data->errorString, "write error");
+      return;
+    }
+    
+
+//	usleep(18*written); // on osx drain seems to hand when the port becomes unavailable, so a sleep may be a better solution
 
     length-=written;
     bytesWritten+=written;
 
-  }while(length > 0);
 
+  }while(length > 0);
 
   data->result = bytesWritten;
 }
