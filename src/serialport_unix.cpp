@@ -205,8 +205,23 @@ void EIO_Open(uv_work_t* req) {
 void EIO_Write(uv_work_t* req) {
   WriteBaton* data = static_cast<WriteBaton*>(req->data);
 
-  tcdrain(data->fd);
-  int bytesWritten = write(data->fd, data->bufferData, data->bufferLength);
+  int bytesWritten=0;
+  int length = data->bufferLength;
+
+  do
+  {
+    int chunk_size = 63;
+    if(length < chunk_size)
+      chunk_size = length;
+
+    tcdrain(data->fd);
+    int written = write(data->fd, (data->bufferData)+bytesWritten, chunk_size);
+
+    length-=written;
+    bytesWritten+=written;
+
+  }while(length > 0);
+
 
   data->result = bytesWritten;
 }
